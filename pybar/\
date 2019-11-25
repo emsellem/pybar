@@ -476,22 +476,10 @@ class mybar(object) :
         fx = self.Flux * self.X_lon
 
         maxY = np.maximum(np.abs(np.max(self.Y_lon)), np.abs(np.min(self.Ylon)))
-        nslits = np.int(maxY / slit_width - 1 / 2.)
-        y_slits = np.linspace(-nslits * slit_width, nslits * slit_width, 2*nslits+1)
-        sw2 = slit_width / 2.
-
-        # Initialise arrays
-        self.Omsini_tw = np.zeros(nslits, dtype=np.float) 
-        self.dfV_tw = np.zeros_like(self.Omsini_tw)
-        self.dfx_tw = np.zeros_like(self.Omsini_tw)
-
+        nslits = maxY // slit_width + 1
+        y_slits = np.linspace(-maxY, maxY, nslits)
         # For a number of slits going from 0 to max
         for y in y_slits:
-            edges = [y - sw2, y + sw2]
-            selY = (self.Y_lon > edges[0]) & (self.Y_lon < edges[1]) 
-            self.dfV_tw = (fV[selY]).sum()
-            self.dfx_tw = (fx[selY]).sum()
-            seld.Omsini_tw = self.dfV_tw / self.dfx_tw
 
     def get_PatternSpeed(self, step_factor=1.0, fill_value=None, method=None, fullgrid=False) :
         """Derive the Pattern Speed on the 2D plane

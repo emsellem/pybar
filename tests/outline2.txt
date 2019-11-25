@@ -1,0 +1,159 @@
+data arrays x,y,I,v (n), n=nx*ny on Cartesian grid
+
+n = nx*ny; ix=i-mod(i,nx), iy=mod(i,nx),  i=1,..,n; ix=1,..,nx; iy=1,..,ny
+
+=============================================================================
+
+:: 1. mirroring ::
+
+boolean flag for mirror image: mirror=true if east to the right
+
+x1=x
+y1=y
+I1=I
+v1=v
+
+IF mirror=true THEN x1=-x
+
+==> 1 result: frame with East counterclockwise left of North
+
+=============================================================================
+
+:: 2. LON on x-axis - coords need to be rotated by delta ::
+
+phi: counterclockwise angle from the top of the frame to the North direction
+(after mirroring)
+
+delta = PA(LON) + phi + 90deg 
+
+x2 = x1*cos(delta) + y1*sin(delta)
+y2 = y1*cos(delta) - x1*sin(delta)
+I2 = I1
+v2 = v1
+
+==> 2 result: frame with LON on x-axis
+
+:: 3. deprojection ::
+
+i: inclination of the disc plane, i=0 for face-on disc
+
+x3 = x2
+y3 = y2/cos(i)
+I3 = I2
+v3 = v2/sin(i)
+
+==> 3 result: deprojected frame with LON on x-axis
+
+:: 4. rotate bar to x-axis  - coords need to be rotated by alpha ::
+
+alpha_sky: counterclockwise angle in the sky from the LON to the bar major axis
+alpha:     counterclockwise angle from the LON to the bar major axis in the disc plane after deprojection
+
+alpha = atan(tan(alpha_sky)/cos(i))
+
+x4 = x3*cos(alpha) + y3*sin(alpha)
+y4 = y3*cos(alpha) - x3*sin(alpha)
+I4 = I3
+v4 = v3
+
+==> 4 result: deprojected frame with bar on x-axis
+
+:: combined matrix ::
+
+ x'      x
+( ) = A ( )      d=delta a=alpha
+ y'      y
+
+      cos(d)cos(a)-sin(d)sin(a)cos(i)   cos(d)sin(a)+sin(d)*cos(a)*cos(i)
+A = (                                                                     )
+     -sin(d)cos(a)-cos(d)sin(a)cos(i)  -sin(d)sin(a)+cos(d)*cos(a)*cos(i)
+
+
+
+=============================================================================
+
+:: 4. Determining limits of frame 4 with derived velocity components ::
+
+grid size of original frame in pixels: nx:ny
+
+[if dxy = linear pixel size in physical units
+then limits of the original grid in physical units +/-xmax, +/-ymax, where
+xmax = dxy*nx/2, ymax = dxy*ny2/2]
+
+original grid limits: xmin, xmax, ymin, ymax
+
+4a. LON on x-axis:
+x2a = xmin*cos(delta) + ymin*sin(delta)
+y2a = ymin*cos(delta) - xmin*sin(delta)
+x2b = xmax*cos(delta) + ymin*sin(delta)
+y2b = ymin*cos(delta) - xmax*sin(delta)
+x2c = xmin*cos(delta) + ymax*sin(delta)
+y2c = ymax*cos(delta) - xmin*sin(delta)
+x2d = xmax*cos(delta) + ymax*sin(delta)
+y2d = ymax*cos(delta) - xmax*sin(delta)
+x2max = max(x2a,x2b,x2c,x2d)
+x2min = min(x2a,x2b,x2c,x2d)
+y2max = max(y2a,y2b,y2c,y2d)
+y2min = min(y2a,y2b,y2c,y2d)
+
+4b. deprojection:
+x3min = x2min
+y3min = y2min/cos(i)
+x3max = x2max
+y3max = y2max/cos(i)
+
+4c. rotate bar to x-axis:
+x4a = x3min*cos(alpha) + y3min*sin(alpha)
+y4a = y3min*cos(alpha) - x3min*sin(alpha)
+x4b = x3max*cos(alpha) + y3min*sin(alpha)
+y4b = y3min*cos(alpha) - x3max*sin(alpha)
+x4c = x3min*cos(alpha) + y3max*sin(alpha)
+y4c = y3max*cos(alpha) - x3min*sin(alpha)
+x4d = x3max*cos(alpha) + y3max*sin(alpha)
+y4d = y3max*cos(alpha) - x3max*sin(alpha)
+x4max = max(x4a,x4b,x4c,x4d)
+x4min = min(x4a,x4b,x4c,x4d)
+y4max = max(y4a,y4b,y4c,y4d)
+y4min = min(y4a,y4b,y4c,y4d)
+
+=============================================================================
+
+:: 5. Calculating radial and tangential velocities ::
+
+on an array of size n4x:n4y
+
+x4min = x4(1)
+x4max = x4(n4x)
+y4min = y4(1)
+y4max = y4(n4y)
+
+for each (i,j); i=1,..,n4x;  j=1,..,n4y:
+
+vy1 = interp(v[x(i), y(j)])
+vy2 = interp(v[x(i),-y(j)])
+gamma = atan(x(i),y(j))
+
+NEW FORMULA?
+
+vr = (vy2*cos(alpha+gamma)-vy1*cos(alpha-gamma))/sin(2*alpha)
+vt = (vy2*sin(alpha+gamma)+vy1*sin(alpha-gamma))/sin(2*alpha)
+
+============================================================================
+
+:::  pattern speed  :::
+
+      d(rho v_x)/dx + d(rho v_y)/dy
+Omp = -------------------------------
+      y*(d rho / dy) - x*(d rho / dx)
+
+so for luminosity array rho being lum(i,j) we get
+
+omp = up/down
+
+down = y(i,j)*(slum(i+1,j)-slum(i-1,j))/dy
+     - x(i,j)*(slum(i,j+1)-slum(i,j-1))/dx
+up = (slum(i+1,j)*vx(i+1,j)-slum(i-1,j)*vx(i-1,j))/dx
+    +(slum(i,j+1)*vy(i,j+1)-slum(i,j-1)*vy(i,j-1))/dy
+dx = x(i+1,j)-x(i-1,j)
+dx = y(i,j+1)-y(i,j-1)
+

@@ -1,0 +1,8 @@
+setup.py
+pybar/__init__.py
+pybar/pybar.py
+pybar.egg-info/PKG-INFO
+pybar.egg-info/SOURCES.txt
+pybar.egg-info/dependency_links.txt
+pybar.egg-info/not-zip-safe
+pybar.egg-info/top_level.txt
