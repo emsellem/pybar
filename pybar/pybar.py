@@ -398,7 +398,12 @@ class mybar(object) :
         -------
         The rotated array
         """
-        return np.asarray(matrix * np.vstack((np.where(Xin is None, self.Xin, Xin), np.where(Yin is None, self.Yin, Yin))), dtype=float)
+        if Xin is None:
+            shape = self.Xin.shape
+        else :
+            shape = Xin.shape
+        newX, newY = np.asarray(matrix * np.vstack((np.where(Xin is None, self.Xin, Xin), np.where(Yin is None, self.Yin, Yin))), dtype=float)
+        return newX.reshape(shape), newY.reshape(shape)
 
     def align_NorthEast(self, force=False) :
         """Get North to the top and East on the left
@@ -472,26 +477,36 @@ class mybar(object) :
         Using X_lon, Y_lon, Flux and Velocity
         """
 
-        fV = self.Flux * self.Vel
+        fV = self.Flux * -self.Vel
         fx = self.Flux * self.X_lon
 
-        maxY = np.maximum(np.abs(np.max(self.Y_lon)), np.abs(np.min(self.Ylon)))
-        nslits = np.int(maxY / slit_width - 1 / 2.)
-        y_slits = np.linspace(-nslits * slit_width, nslits * slit_width, 2*nslits+1)
+        maxY = np.maximum(np.abs(np.max(self.Y_lon)), np.abs(np.min(self.Y_lon)))
+        self.nslits = np.int(maxY / slit_width - 1 / 2.)
+        self.y_slits = np.linspace(-self.nslits * slit_width, self.nslits * slit_width, 
+                                    2*self.nslits+1)
         sw2 = slit_width / 2.
 
         # Initialise arrays
-        self.Omsini_tw = np.zeros(nslits, dtype=np.float) 
+        self.Omsini_tw = np.zeros(2*self.nslits+1, dtype=np.float) 
         self.dfV_tw = np.zeros_like(self.Omsini_tw)
         self.dfx_tw = np.zeros_like(self.Omsini_tw)
+        self.df_tw = np.zeros_like(self.Omsini_tw)
 
         # For a number of slits going from 0 to max
-        for y in y_slits:
+        for i, y in enumerate(self.y_slits):
             edges = [y - sw2, y + sw2]
-            selY = (self.Y_lon > edges[0]) & (self.Y_lon < edges[1]) 
-            self.dfV_tw = (fV[selY]).sum()
-            self.dfx_tw = (fx[selY]).sum()
-            seld.Omsini_tw = self.dfV_tw / self.dfx_tw
+            selY = (self.Y_lon > edges[0]) & (self.Y_lon < edges[1])
+            self.df_tw[i] = np.nansum(self.Flux[selY])
+            if self.df_tw[i] != 0:
+                self.dfV_tw[i] = np.nansum(fV[selY]) / self.df_tw[i]
+                self.dfx_tw[i] = np.nansum(fx[selY]) / self.df_tw[i]
+            else:
+                self.dfV_tw[i] = 0.
+                self.dfx_tw[i] = 0.
+            if self.dfx_tw[i] != 0:
+                self.Omsini_tw[i] = self.dfV_tw[i] / self.dfx_tw[i]
+            else:
+                self.Omsini_tw[i] = 0.
 
     def get_PatternSpeed(self, step_factor=1.0, fill_value=None, method=None, fullgrid=False) :
         """Derive the Pattern Speed on the 2D plane
